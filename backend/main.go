@@ -6,18 +6,23 @@ import (
 
 	"github.com/TgkCapture/alumni-welfare/config"
 	"github.com/TgkCapture/alumni-welfare/models"
-
+	"github.com/TgkCapture/alumni-welfare/routes"
 	"github.com/gin-gonic/gin"
 )
 
 func main() {
 	r := gin.Default()
 
+	config.SetupCORS(r)
+
 	// Connect to the database
 	config.ConnectDatabase()
 
 	// Auto Migrate
 	config.DB.AutoMigrate(&models.User{})
+
+	// Register routes
+	routes.PaymentRoutes(r)
 
 	r.GET("/", func(c *gin.Context) {
 		c.JSON(200, gin.H{

@@ -23,6 +23,7 @@ func main() {
 
 	// Register routes
 	routes.PaymentRoutes(r)
+	routes.AuthRoutes(r)
 
 	r.GET("/", func(c *gin.Context) {
 		c.JSON(200, gin.H{

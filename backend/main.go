@@ -19,7 +19,7 @@ func main() {
 	config.ConnectDatabase()
 
 	// Auto Migrate
-	config.DB.AutoMigrate(&models.User{})
+	config.DB.AutoMigrate(&models.User{}, &models.Payment{})
 
 	// Register routes
 	routes.PaymentRoutes(r)

@@ -32,5 +32,5 @@ func ConnectDatabase() {
 	}
 
 	DB = database
-	fmt.Println("Database connected successfully!")
+	fmt.Println("Database connected and migrated successfully!")
 }

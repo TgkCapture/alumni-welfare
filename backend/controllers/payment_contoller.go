@@ -86,3 +86,28 @@ func MakePayment(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"message": "Payment initiated", "transaction_id": payChanguResponse.TransactionID})
 }
+
+// Webhook handler for PayChangu payment updates
+func PaymentWebhook(c *gin.Context) {
+	var webhookEvent struct {
+		TransactionID string `json:"transaction_id"`
+		Status        string `json:"status"` // "successful" or "failed"
+	}
+
+	if err := c.ShouldBindJSON(&webhookEvent); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request"})
+		return
+	}
+
+	// Update payment record in database
+	var payment models.Payment
+	if err := config.DB.Where("transaction_id = ?", webhookEvent.TransactionID).First(&payment).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Payment not found"})
+		return
+	}
+
+	payment.Status = webhookEvent.Status
+	config.DB.Save(&payment)
+
+	c.JSON(http.StatusOK, gin.H{"message": "Payment updated", "status": webhookEvent.Status})
+}

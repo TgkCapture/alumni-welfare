@@ -111,3 +111,23 @@ func PaymentWebhook(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{"message": "Payment updated", "status": webhookEvent.Status})
 }
+
+// Get user's payment history
+func GetPaymentHistory(c *gin.Context) {
+	email, exists := c.Get("email")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+
+	var user models.User
+	if err := config.DB.Where("email = ?", email).First(&user).Error; err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not found"})
+		return
+	}
+
+	var payments []models.Payment
+	config.DB.Where("user_id = ?", user.ID).Find(&payments)
+
+	c.JSON(http.StatusOK, payments)
+}

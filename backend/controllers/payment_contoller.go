@@ -3,6 +3,7 @@ package controllers
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
@@ -21,6 +22,14 @@ type PaymentRequest struct {
 type PayChanguResponse struct {
 	TransactionID string `json:"transaction_id"`
 	Status        string `json:"status"`
+}
+
+type PaymentVerificationResponse struct {
+	TransactionID string `json:"transaction_id"`
+	Status        string `json:"status"`
+	Amount        int    `json:"amount"`
+	Currency      string `json:"currency"`
+	Details       string `json:"details"`
 }
 
 // MakePayment - Initiate a Mobile Money Payment
@@ -130,4 +139,49 @@ func GetPaymentHistory(c *gin.Context) {
 	config.DB.Where("user_id = ?", user.ID).Find(&payments)
 
 	c.JSON(http.StatusOK, payments)
+}
+
+// VerifyPayment - Verify Mobile Money
+func VerifyPayment(c *gin.Context) {
+	chargeID := c.Param("chargeId")
+
+	if chargeID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing chargeId"})
+		return
+	}
+
+	verifyURL := fmt.Sprintf("https://api.paychangu.com/mobile-money/payments/%s/verify", chargeID)
+
+	req, err := http.NewRequest("GET", verifyURL, nil)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Request creation failed"})
+		return
+	}
+
+	req.Header.Add("Accept", "application/json")
+	req.Header.Add("Authorization", "Bearer "+os.Getenv("PAYCHANGU_SECRET_KEY"))
+
+	client := &http.Client{}
+	res, err := client.Do(req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Verification request failed"})
+		return
+	}
+	defer res.Body.Close()
+
+	body, _ := io.ReadAll(res.Body)
+
+	var verificationResponse PaymentVerificationResponse
+	if err := json.Unmarshal(body, &verificationResponse); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse verification response"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"transaction_id": verificationResponse.TransactionID,
+		"status":         verificationResponse.Status,
+		"amount":         verificationResponse.Amount,
+		"currency":       verificationResponse.Currency,
+		"details":        verificationResponse.Details,
+	})
 }

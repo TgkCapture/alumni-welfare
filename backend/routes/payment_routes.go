@@ -14,5 +14,7 @@ func PaymentRoutes(r *gin.Engine) {
 		auth.GET("/payments", controllers.GetPaymentHistory)
 		auth.POST("/webhook", controllers.PaymentWebhook)
 		auth.GET("/payments/:chargeId/verify", controllers.VerifyPayment)
+		auth.GET("/payments/:chargeId/details", controllers.GetPaymentDetails)
+
 	}
 }

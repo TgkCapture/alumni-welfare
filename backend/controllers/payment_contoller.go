@@ -185,3 +185,48 @@ func VerifyPayment(c *gin.Context) {
 		"details":        verificationResponse.Details,
 	})
 }
+
+// GetPaymentDetails - Retrieve detailed payment information
+func GetPaymentDetails(c *gin.Context) {
+	chargeID := c.Param("chargeId")
+
+	if chargeID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Missing chargeId"})
+		return
+	}
+
+	detailsURL := fmt.Sprintf("https://api.paychangu.com/mobile-money/payments/%s/details", chargeID)
+
+	req, err := http.NewRequest("GET", detailsURL, nil)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Request creation failed"})
+		return
+	}
+
+	req.Header.Add("Accept", "application/json")
+	req.Header.Add("Authorization", "Bearer "+os.Getenv("PAYCHANGU_SECRET_KEY"))
+
+	client := &http.Client{}
+	res, err := client.Do(req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Details request failed"})
+		return
+	}
+	defer res.Body.Close()
+
+	body, _ := io.ReadAll(res.Body)
+
+	var detailsResponse PaymentVerificationResponse
+	if err := json.Unmarshal(body, &detailsResponse); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse payment details response"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"transaction_id": detailsResponse.TransactionID,
+		"status":         detailsResponse.Status,
+		"amount":         detailsResponse.Amount,
+		"currency":       detailsResponse.Currency,
+		"details":        detailsResponse.Details,
+	})
+}

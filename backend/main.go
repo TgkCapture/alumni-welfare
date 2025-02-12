@@ -25,12 +25,6 @@ func main() {
 	routes.PaymentRoutes(r)
 	routes.AuthRoutes(r)
 
-	r.GET("/", func(c *gin.Context) {
-		c.JSON(200, gin.H{
-			"message": "Alumni Welfare Payment System API",
-		})
-	})
-
 	// Run server
 	port := "8080"
 	fmt.Println("Server is running on port " + port)

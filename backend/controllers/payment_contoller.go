@@ -11,6 +11,7 @@ import (
 	"github.com/TgkCapture/alumni-welfare/config"
 	"github.com/TgkCapture/alumni-welfare/models"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 type PaymentRequest struct {
@@ -46,19 +47,33 @@ func MakePayment(c *gin.Context) {
 		return
 	}
 
+	// Retrieve user from the database
 	var user models.User
 	if err := config.DB.Where("email = ?", email).First(&user).Error; err != nil {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not found"})
 		return
 	}
 
-	// Call PayChangu API
-	payChanguURL := os.Getenv("PAYCHANGU_BASE_URL") + "/mobile-money/payments/initialize"
+	chargeID := uuid.New().String()
+
 	payChanguPayload := map[string]interface{}{
 		"mobile_money_operator_ref_id": "20be6c20-adeb-4b5b-a7ba-0769820df4fb",
+		"mobile":                       user.MobileNumber,
+		"email":                        user.Email,
+		"first_name":                   user.FirstName,
+		"last_name":                    user.LastName,
+		"amount":                       request.Amount,
+		"charge_id":                    chargeID,
 	}
-	payloadBytes, _ := json.Marshal(payChanguPayload)
 
+	payloadBytes, err := json.Marshal(payChanguPayload)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create payment payload"})
+		return
+	}
+
+	// Send the request to PayChangu API
+	payChanguURL := os.Getenv("PAYCHANGU_BASE_URL") + "/mobile-money/payments/initialize"
 	req, err := http.NewRequest("POST", payChanguURL, bytes.NewBuffer(payloadBytes))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Request creation failed"})
@@ -77,12 +92,12 @@ func MakePayment(c *gin.Context) {
 	}
 	defer res.Body.Close()
 
+	// Parse the response from PayChangu
 	body, _ := io.ReadAll(res.Body)
-
 	var payChanguResponse PayChanguResponse
 	json.Unmarshal(body, &payChanguResponse)
 
-	// Save payment record
+	// Save the payment record to the database
 	payment := models.Payment{
 		UserID:        user.ID,
 		Name:          request.Name,
@@ -93,7 +108,7 @@ func MakePayment(c *gin.Context) {
 	}
 	config.DB.Create(&payment)
 
-	c.JSON(http.StatusOK, gin.H{"message": "Payment initiated", "transaction_id": payChanguResponse.TransactionID})
+	c.JSON(http.StatusOK, gin.H{"message": "Payment initiated", "transaction_id": payChanguResponse.TransactionID, "charge_id": chargeID})
 }
 
 // Webhook handler for PayChangu payment updates

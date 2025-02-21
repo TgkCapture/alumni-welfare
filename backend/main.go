@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"os"
 
 	"github.com/TgkCapture/alumni-welfare/config"
 	"github.com/TgkCapture/alumni-welfare/models"
@@ -26,7 +27,7 @@ func main() {
 	routes.AuthRoutes(r)
 
 	// Run server
-	port := "8080"
+	port := os.Getenv("PORT")
 	fmt.Println("Server is running on port " + port)
 	log.Fatal(r.Run(":" + port))
 }

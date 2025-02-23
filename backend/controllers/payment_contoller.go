@@ -41,12 +41,13 @@ type MobileMoneyOperator struct {
 	Currency string `json:"currency"`
 }
 
-func getMobileMoneyOperator(mobile string) (string, error) {
-	url := "https://api.paychangu.com/mobile-money"
+func GetMobileOperator(c *gin.Context) {
+	url := os.Getenv("PAYCHANGU_BASE_URL") + "/mobile-money"
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		return "", err
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create request"})
+		return
 	}
 
 	req.Header.Add("accept", "application/json")
@@ -54,28 +55,25 @@ func getMobileMoneyOperator(mobile string) (string, error) {
 	client := &http.Client{}
 	res, err := client.Do(req)
 	if err != nil {
-		return "", err
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch mobile operators"})
+		return
 	}
 	defer res.Body.Close()
 
 	body, err := io.ReadAll(res.Body)
 	if err != nil {
-		return "", err
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to read response"})
+		return
 	}
 
-	var operators []MobileMoneyOperator
-	if err := json.Unmarshal(body, &operators); err != nil {
-		return "", err
+	// Parse JSON response
+	var responseData map[string]interface{}
+	if err := json.Unmarshal(body, &responseData); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse response"})
+		return
 	}
 
-	// Match operator based on the phone number prefix
-	for _, operator := range operators {
-		if len(mobile) >= 4 && mobile[:4] == operator.Prefix {
-			return operator.ID, nil
-		}
-	}
-
-	return "", fmt.Errorf("no matching mobile money operator found")
+	c.JSON(http.StatusOK, responseData)
 }
 
 // MakePayment - Initiate a Mobile Money Payment
@@ -99,16 +97,23 @@ func MakePayment(c *gin.Context) {
 		return
 	}
 
+	// Fetch Mobile Money Operator ID
+	// operatorID, err := getMobileMoneyOperator(user.MobileNumber)
+	// if err != nil {
+	// 	c.JSON(http.StatusBadRequest, gin.H{"error": "Failed to find mobile money operator"})
+	// 	return
+	// }
+
 	chargeID := uuid.New().String()
 
 	payChanguPayload := map[string]interface{}{
-		"mobile_money_operator_ref_id": "20be6c20-adeb-4b5b-a7ba-0769820df4fb",
-		"mobile":                       user.MobileNumber,
-		"email":                        user.Email,
-		"first_name":                   user.FirstName,
-		"last_name":                    user.LastName,
-		"amount":                       request.Amount,
-		"charge_id":                    chargeID,
+		// "mobile_money_operator_ref_id": operatorID,
+		"mobile":     user.MobileNumber,
+		"email":      user.Email,
+		"first_name": user.FirstName,
+		"last_name":  user.LastName,
+		"amount":     request.Amount,
+		"charge_id":  chargeID,
 	}
 
 	payloadBytes, err := json.Marshal(payChanguPayload)

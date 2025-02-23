@@ -33,6 +33,51 @@ type PaymentVerificationResponse struct {
 	Details       string `json:"details"`
 }
 
+type MobileMoneyOperator struct {
+	ID       string `json:"id"`
+	Name     string `json:"name"`
+	Prefix   string `json:"prefix"`
+	Country  string `json:"country"`
+	Currency string `json:"currency"`
+}
+
+func getMobileMoneyOperator(mobile string) (string, error) {
+	url := "https://api.paychangu.com/mobile-money"
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return "", err
+	}
+
+	req.Header.Add("accept", "application/json")
+
+	client := &http.Client{}
+	res, err := client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer res.Body.Close()
+
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		return "", err
+	}
+
+	var operators []MobileMoneyOperator
+	if err := json.Unmarshal(body, &operators); err != nil {
+		return "", err
+	}
+
+	// Match operator based on the phone number prefix
+	for _, operator := range operators {
+		if len(mobile) >= 4 && mobile[:4] == operator.Prefix {
+			return operator.ID, nil
+		}
+	}
+
+	return "", fmt.Errorf("no matching mobile money operator found")
+}
+
 // MakePayment - Initiate a Mobile Money Payment
 func MakePayment(c *gin.Context) {
 	var request PaymentRequest

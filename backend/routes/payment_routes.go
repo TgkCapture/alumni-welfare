@@ -3,6 +3,7 @@ package routes
 import (
 	"github.com/TgkCapture/alumni-welfare/controllers"
 	"github.com/TgkCapture/alumni-welfare/middleware"
+	"github.com/TgkCapture/alumni-welfare/services"
 	"github.com/gin-gonic/gin"
 )
 
@@ -15,6 +16,6 @@ func PaymentRoutes(r *gin.Engine) {
 		auth.POST("/webhook", controllers.PaymentWebhook)
 		auth.GET("/payments/:chargeId/verify", controllers.VerifyPayment)
 		auth.GET("/payments/:chargeId/details", controllers.GetPaymentDetails)
-		auth.GET("/get-mobile-operator", controllers.GetMobileOperator)
+		auth.GET("/get-mobile-operator", services.GetMobileOperator)
 	}
 }

@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/TgkCapture/alumni-welfare/utils"
 	"github.com/gin-gonic/gin"
 )
 
@@ -68,23 +69,23 @@ func GetOperatorRefID(mobile string) (string, error) {
 	}
 
 	var responseData struct {
-		Data []struct {
-			RefID     string `json:"ref_id"`
-			ShortCode string `json:"short_code"`
-			Name      string `json:"name"`
-		} `json:"data"`
+		Data []utils.Operator `json:"data"`
 	}
 
 	if err := json.Unmarshal(body, &responseData); err != nil {
 		return "", err
 	}
 
-	// Check mobile number prefix
-	if strings.HasPrefix(mobile, "088") {
-		return FindOperatorRefID(responseData.Data, "tnm"), nil
-	} else if strings.HasPrefix(mobile, "099") || strings.HasPrefix(mobile, "098") {
-		return FindOperatorRefID(responseData.Data, "airtel"), nil
+	// Determine the short code based on the mobile number prefix
+	var shortCode string
+	switch {
+	case strings.HasPrefix(mobile, "088"):
+		shortCode = "tnm"
+	case strings.HasPrefix(mobile, "099"), strings.HasPrefix(mobile, "098"):
+		shortCode = "airtel"
+	default:
+		return "", nil
 	}
 
-	return "", nil
+	return utils.FindOperatorRefID(responseData.Data, shortCode), nil
 }

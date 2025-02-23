@@ -10,6 +10,7 @@ import (
 
 	"github.com/TgkCapture/alumni-welfare/config"
 	"github.com/TgkCapture/alumni-welfare/models"
+	"github.com/TgkCapture/alumni-welfare/services"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
@@ -55,7 +56,7 @@ func MakePayment(c *gin.Context) {
 	}
 
 	// Fetch Mobile Money Operator ID
-	operatorID, err := GetOperatorRefID(user.MobileNumber)
+	operatorID, err := services.GetOperatorRefID(user.MobileNumber)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Failed to find mobile money operator"})
 		return

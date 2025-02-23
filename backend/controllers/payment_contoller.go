@@ -105,26 +105,12 @@ func GetOperatorRefID(mobile string) (string, error) {
 
 	// Check mobile number prefix
 	if strings.HasPrefix(mobile, "088") {
-		return findOperatorRefID(responseData.Data, "tnm"), nil
+		return FindOperatorRefID(responseData.Data, "tnm"), nil
 	} else if strings.HasPrefix(mobile, "099") || strings.HasPrefix(mobile, "098") {
-		return findOperatorRefID(responseData.Data, "airtel"), nil
+		return FindOperatorRefID(responseData.Data, "airtel"), nil
 	}
 
 	return "", nil
-}
-
-// Helper function to match operator short code
-func findOperatorRefID(operators []struct {
-	RefID     string `json:"ref_id"`
-	ShortCode string `json:"short_code"`
-	Name      string `json:"name"`
-}, shortCode string) string {
-	for _, operator := range operators {
-		if operator.ShortCode == shortCode {
-			return operator.RefID
-		}
-	}
-	return ""
 }
 
 // MakePayment - Initiate a Mobile Money Payment

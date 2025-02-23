@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/TgkCapture/alumni-welfare/config"
 	"github.com/TgkCapture/alumni-welfare/models"
@@ -31,14 +32,6 @@ type PaymentVerificationResponse struct {
 	Amount        int    `json:"amount"`
 	Currency      string `json:"currency"`
 	Details       string `json:"details"`
-}
-
-type MobileMoneyOperator struct {
-	ID       string `json:"id"`
-	Name     string `json:"name"`
-	Prefix   string `json:"prefix"`
-	Country  string `json:"country"`
-	Currency string `json:"currency"`
 }
 
 func GetMobileOperator(c *gin.Context) {
@@ -76,6 +69,64 @@ func GetMobileOperator(c *gin.Context) {
 	c.JSON(http.StatusOK, responseData)
 }
 
+func GetOperatorRefID(mobile string) (string, error) {
+	url := os.Getenv("PAYCHANGU_BASE_URL") + "/mobile-money"
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return "", err
+	}
+
+	req.Header.Add("accept", "application/json")
+
+	client := &http.Client{}
+	res, err := client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer res.Body.Close()
+
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		return "", err
+	}
+
+	var responseData struct {
+		Data []struct {
+			RefID     string `json:"ref_id"`
+			ShortCode string `json:"short_code"`
+			Name      string `json:"name"`
+		} `json:"data"`
+	}
+
+	if err := json.Unmarshal(body, &responseData); err != nil {
+		return "", err
+	}
+
+	// Check mobile number prefix
+	if strings.HasPrefix(mobile, "088") {
+		return findOperatorRefID(responseData.Data, "tnm"), nil
+	} else if strings.HasPrefix(mobile, "099") || strings.HasPrefix(mobile, "098") {
+		return findOperatorRefID(responseData.Data, "airtel"), nil
+	}
+
+	return "", nil
+}
+
+// Helper function to match operator short code
+func findOperatorRefID(operators []struct {
+	RefID     string `json:"ref_id"`
+	ShortCode string `json:"short_code"`
+	Name      string `json:"name"`
+}, shortCode string) string {
+	for _, operator := range operators {
+		if operator.ShortCode == shortCode {
+			return operator.RefID
+		}
+	}
+	return ""
+}
+
 // MakePayment - Initiate a Mobile Money Payment
 func MakePayment(c *gin.Context) {
 	var request PaymentRequest
@@ -98,22 +149,22 @@ func MakePayment(c *gin.Context) {
 	}
 
 	// Fetch Mobile Money Operator ID
-	// operatorID, err := getMobileMoneyOperator(user.MobileNumber)
-	// if err != nil {
-	// 	c.JSON(http.StatusBadRequest, gin.H{"error": "Failed to find mobile money operator"})
-	// 	return
-	// }
+	operatorID, err := GetOperatorRefID(user.MobileNumber)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Failed to find mobile money operator"})
+		return
+	}
 
 	chargeID := uuid.New().String()
 
 	payChanguPayload := map[string]interface{}{
-		// "mobile_money_operator_ref_id": operatorID,
-		"mobile":     user.MobileNumber,
-		"email":      user.Email,
-		"first_name": user.FirstName,
-		"last_name":  user.LastName,
-		"amount":     request.Amount,
-		"charge_id":  chargeID,
+		"mobile_money_operator_ref_id": operatorID,
+		"mobile":                       user.MobileNumber,
+		"email":                        user.Email,
+		"first_name":                   user.FirstName,
+		"last_name":                    user.LastName,
+		"amount":                       request.Amount,
+		"charge_id":                    chargeID,
 	}
 
 	payloadBytes, err := json.Marshal(payChanguPayload)

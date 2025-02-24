@@ -17,5 +17,6 @@ func PaymentRoutes(r *gin.Engine) {
 		auth.GET("/payments/:chargeId/verify", controllers.VerifyPayment)
 		auth.GET("/payments/:chargeId/details", controllers.GetPaymentDetails)
 		auth.GET("/get-mobile-operator", services.GetMobileOperator)
+		auth.GET("/payments/:transactionId/report", controllers.GetTransactionReport)
 	}
 }

@@ -249,3 +249,21 @@ func GetPaymentDetails(c *gin.Context) {
 
 	c.JSON(http.StatusOK, detailsResponse)
 }
+
+// serves the transaction report file
+func GetTransactionReport(c *gin.Context) {
+	transactionID := c.Param("transactionId")
+
+	var payment models.Payment
+	if err := config.DB.Where("transaction_id = ?", transactionID).First(&payment).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Payment not found"})
+		return
+	}
+
+	if payment.ReportPath == "" {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Report not available"})
+		return
+	}
+
+	c.File(payment.ReportPath)
+}

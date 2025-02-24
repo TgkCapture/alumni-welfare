@@ -135,16 +135,32 @@ func PaymentWebhook(c *gin.Context) {
 		return
 	}
 
-	// Update payment record in database
-	if err := config.DB.Model(&models.Payment{}).
-		Where("transaction_id = ?", webhookEvent.TransactionID).
-		Update("status", webhookEvent.Status).
-		Error; err != nil {
+	// Retrieve the payment record
+	var payment models.Payment
+	if err := config.DB.Where("transaction_id = ?", webhookEvent.TransactionID).First(&payment).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Payment not found"})
+		return
+	}
+
+	// Update payment status
+	payment.Status = webhookEvent.Status
+	if err := config.DB.Save(&payment).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update payment status"})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Payment updated", "status": webhookEvent.Status})
+	// Generate transaction report
+	reportPath, err := services.GenerateTransactionReport(payment)
+	if err == nil {
+		payment.ReportPath = reportPath
+		config.DB.Save(&payment)
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message":    "Payment updated",
+		"status":     webhookEvent.Status,
+		"report_url": reportPath,
+	})
 }
 
 // Get user's payment history

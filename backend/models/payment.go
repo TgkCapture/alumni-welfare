@@ -10,4 +10,5 @@ type Payment struct {
 	Month         int    `json:"month"`
 	TransactionID string `json:"transaction_id" gorm:"unique"`
 	Status        string `json:"status" gorm:"index"`
+	ReportPath    string `json:"report_path"`
 }

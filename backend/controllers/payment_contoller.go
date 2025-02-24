@@ -3,6 +3,7 @@ package controllers
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -13,6 +14,7 @@ import (
 	"github.com/TgkCapture/alumni-welfare/services"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"gorm.io/gorm"
 )
 
 type PaymentRequest struct {
@@ -135,25 +137,38 @@ func PaymentWebhook(c *gin.Context) {
 		return
 	}
 
-	// Retrieve the payment record
 	var payment models.Payment
-	if err := config.DB.Where("transaction_id = ?", webhookEvent.TransactionID).First(&payment).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Payment not found"})
-		return
-	}
+	err := config.DB.Where("transaction_id = ?", webhookEvent.TransactionID).First(&payment).Error
 
-	// Update payment status
-	payment.Status = webhookEvent.Status
-	if err := config.DB.Save(&payment).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update payment status"})
-		return
+	if err != nil {
+		// If no existing record, create a new one
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			payment = models.Payment{
+				TransactionID: webhookEvent.TransactionID,
+				Status:        webhookEvent.Status,
+			}
+			if err := config.DB.Create(&payment).Error; err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create payment record"})
+				return
+			}
+		} else {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch payment record"})
+			return
+		}
+	} else {
+		// Update existing record
+		payment.Status = webhookEvent.Status
+		if err := config.DB.Save(&payment).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update payment status"})
+			return
+		}
 	}
 
 	// Generate transaction report
 	reportPath, err := services.GenerateTransactionReport(payment)
 	if err == nil {
 		payment.ReportPath = reportPath
-		config.DB.Save(&payment)
+		config.DB.Save(&payment) // Save the report path
 	}
 
 	c.JSON(http.StatusOK, gin.H{

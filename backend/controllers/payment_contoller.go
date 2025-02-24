@@ -114,7 +114,11 @@ func MakePayment(c *gin.Context) {
 		TransactionID: payChanguResponse.TransactionID,
 		Status:        "pending",
 	}
-	config.DB.Create(&payment)
+
+	if err := config.DB.Create(&payment).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database error: Failed to save payment"})
+		return
+	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Payment initiated", "transaction_id": payChanguResponse.TransactionID, "charge_id": chargeID})
 }
@@ -132,14 +136,13 @@ func PaymentWebhook(c *gin.Context) {
 	}
 
 	// Update payment record in database
-	var payment models.Payment
-	if err := config.DB.Where("transaction_id = ?", webhookEvent.TransactionID).First(&payment).Error; err != nil {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Payment not found"})
+	if err := config.DB.Model(&models.Payment{}).
+		Where("transaction_id = ?", webhookEvent.TransactionID).
+		Update("status", webhookEvent.Status).
+		Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update payment status"})
 		return
 	}
-
-	payment.Status = webhookEvent.Status
-	config.DB.Save(&payment)
 
 	c.JSON(http.StatusOK, gin.H{"message": "Payment updated", "status": webhookEvent.Status})
 }
@@ -159,7 +162,10 @@ func GetPaymentHistory(c *gin.Context) {
 	}
 
 	var payments []models.Payment
-	config.DB.Where("user_id = ?", user.ID).Find(&payments)
+	if err := config.DB.Where("user_id = ?", user.ID).Find(&payments).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch payment history"})
+		return
+	}
 
 	c.JSON(http.StatusOK, payments)
 }
@@ -175,13 +181,7 @@ func VerifyPayment(c *gin.Context) {
 
 	verifyURL := fmt.Sprintf("https://api.paychangu.com/mobile-money/payments/%s/verify", chargeID)
 
-	req, err := http.NewRequest("GET", verifyURL, nil)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Request creation failed"})
-		return
-	}
-
-	req.Header.Add("Accept", "application/json")
+	req, _ := http.NewRequest("GET", verifyURL, nil)
 	req.Header.Add("Authorization", "Bearer "+os.Getenv("PAYCHANGU_SECRET_KEY"))
 
 	client := &http.Client{}
@@ -193,20 +193,17 @@ func VerifyPayment(c *gin.Context) {
 	defer res.Body.Close()
 
 	body, _ := io.ReadAll(res.Body)
-
 	var verificationResponse PaymentVerificationResponse
-	if err := json.Unmarshal(body, &verificationResponse); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse verification response"})
-		return
+	json.Unmarshal(body, &verificationResponse)
+
+	// Update payment status in database if successful
+	if verificationResponse.Status == "successful" {
+		config.DB.Model(&models.Payment{}).
+			Where("transaction_id = ?", verificationResponse.TransactionID).
+			Update("status", "successful")
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"transaction_id": verificationResponse.TransactionID,
-		"status":         verificationResponse.Status,
-		"amount":         verificationResponse.Amount,
-		"currency":       verificationResponse.Currency,
-		"details":        verificationResponse.Details,
-	})
+	c.JSON(http.StatusOK, verificationResponse)
 }
 
 // GetPaymentDetails - Retrieve detailed payment information
@@ -219,14 +216,7 @@ func GetPaymentDetails(c *gin.Context) {
 	}
 
 	detailsURL := fmt.Sprintf("https://api.paychangu.com/mobile-money/payments/%s/details", chargeID)
-
-	req, err := http.NewRequest("GET", detailsURL, nil)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Request creation failed"})
-		return
-	}
-
-	req.Header.Add("Accept", "application/json")
+	req, _ := http.NewRequest("GET", detailsURL, nil)
 	req.Header.Add("Authorization", "Bearer "+os.Getenv("PAYCHANGU_SECRET_KEY"))
 
 	client := &http.Client{}
@@ -238,18 +228,8 @@ func GetPaymentDetails(c *gin.Context) {
 	defer res.Body.Close()
 
 	body, _ := io.ReadAll(res.Body)
-
 	var detailsResponse PaymentVerificationResponse
-	if err := json.Unmarshal(body, &detailsResponse); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse payment details response"})
-		return
-	}
+	json.Unmarshal(body, &detailsResponse)
 
-	c.JSON(http.StatusOK, gin.H{
-		"transaction_id": detailsResponse.TransactionID,
-		"status":         detailsResponse.Status,
-		"amount":         detailsResponse.Amount,
-		"currency":       detailsResponse.Currency,
-		"details":        detailsResponse.Details,
-	})
+	c.JSON(http.StatusOK, detailsResponse)
 }

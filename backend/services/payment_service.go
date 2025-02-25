@@ -122,7 +122,7 @@ func GenerateTransactionReport(payment models.Payment) (string, error) {
 	data := []string{
 		payment.TransactionID,
 		fmt.Sprintf("%d", payment.UserID),
-		payment.Name,
+		payment.FirstName + " " + payment.LastName,
 		fmt.Sprintf("%d", payment.Amount),
 		fmt.Sprintf("%d", payment.Month),
 		payment.Status,

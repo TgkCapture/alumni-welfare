@@ -18,9 +18,10 @@ import (
 )
 
 type PaymentRequest struct {
-	Name   string `json:"name"`
-	Amount int    `json:"amount"`
-	Month  int    `json:"month"`
+	FirstName string `json:"first_name"`
+	LastName  string `json:"last_name"`
+	Amount    int    `json:"amount"`
+	Month     int    `json:"month"`
 }
 
 type PayChanguResponse struct {
@@ -110,7 +111,8 @@ func MakePayment(c *gin.Context) {
 	// Save the payment record to the database
 	payment := models.Payment{
 		UserID:        user.ID,
-		Name:          request.Name,
+		FirstName:     request.FirstName,
+		LastName:      request.LastName,
 		Amount:        request.Amount,
 		Month:         request.Month,
 		TransactionID: payChanguResponse.TransactionID,

@@ -5,7 +5,8 @@ import "gorm.io/gorm"
 type Payment struct {
 	gorm.Model
 	UserID        uint   `json:"user_id" gorm:"index"`
-	Name          string `json:"name"`
+	FirstName     string `json:"first_name"`
+	LastName      string `json:"last_name"`
 	Amount        int    `json:"amount"`
 	Month         int    `json:"month"`
 	TransactionID string `json:"transaction_id" gorm:"unique"`

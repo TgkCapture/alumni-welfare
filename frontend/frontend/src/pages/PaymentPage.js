@@ -15,11 +15,11 @@ function PaymentPage() {
 
   useEffect(() => {
     axios
-      .get("http://localhost:8080/payments", { headers: { Authorization: token } })
+      .get(`${API_BASE_URL}/payments  `, { headers: { Authorization: token } })
       .then((res) => setHistory(res.data))
       .catch((err) => setError("Failed to load payment history."))
       .finally(() => setLoading(false));
-  }, []);
+  });
 
   const handlePayment = async () => {
     if (!name || !amount || !month) {

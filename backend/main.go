@@ -27,7 +27,14 @@ func main() {
 	routes.AuthRoutes(r)
 
 	// Run server
+	host := os.Getenv("HOST")
+	if host == "" {
+		host = "0.0.0.0"
+	}
 	port := os.Getenv("PORT")
-	fmt.Println("Server is running on port " + port)
-	log.Fatal(r.Run(":" + port))
+	if port == "" {
+		port = "8000"
+	}
+	fmt.Println("Server is running on " + host + ":" + port)
+	log.Fatal(r.Run(host + ":" + port))
 }
